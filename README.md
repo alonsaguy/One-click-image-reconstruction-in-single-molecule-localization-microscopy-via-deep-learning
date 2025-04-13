@@ -13,8 +13,8 @@ This repository accompanies the paper:
 
 This project is divided into two main components:
 
-- **AutoDS** — 2D Deep-STORM model training and inference  
-- **AutoDS3D** — GUI-based 3D localization pipeline
+- **AutoDS** — AutoDS inference and 2D Deep-STORM model training
+- **AutoDS3D** — GUI-based AutoDS3D localization pipeline
 
 ---
 
@@ -24,7 +24,7 @@ This part contains two Jupyter notebooks:
 - **Training**: Train your own Deep-STORM model
 - **Inference**: Run AutoDS for one-click image reconstruction
 
-> 🔧 Pre-trained models (4 total) are available in the `models/` directory.
+> Pre-trained models (4 total) are available in the `models/` directory.
 
 ---
 
