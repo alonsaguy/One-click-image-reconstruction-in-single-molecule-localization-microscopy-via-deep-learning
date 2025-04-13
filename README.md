@@ -1,6 +1,6 @@
 # One-Click Image Reconstruction in Single-Molecule Localization Microscopy via Deep Learning
 
-![Alt text](intro_image.jpg)
+![Alt text](intro_image.png)
 
 This repository accompanies the paper:  
 **_"One-click image reconstruction in single-molecule localization microscopy via deep learning"_**
