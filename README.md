@@ -1,39 +1,83 @@
-# One-click-image-reconstruction-in-single-molecule-localization-microscopy-via-deep-learning
+# One-Click Image Reconstruction in Single-Molecule Localization Microscopy via Deep Learning
 
-This repository is based on the following paper: "One-click image reconstruction in single-molecule localization microscopy via deep learning".
+![Alt text](intro_image.jpg)
 
-Please cite the original [paper](link with biorXiv) when using or developing this notebook.
+This repository accompanies the paper:  
+**_"One-click image reconstruction in single-molecule localization microscopy via deep learning"_**
 
-The repository is divided to two parts:
-- AutoDS
-- AutoDS3D
+> 📄 Please make sure to [cite the original paper](#citation) when using or extending this work.
 
-**AutoDS**
-There are two jupyter notebooks, one for training our new Deep-STORM models and one for inference using AutoDS pipeline. See run instruction inside the notebooks.
+---
 
-Additionally, we provide a set of four pre-trained models inside the 'models' directory.
+## Repository Structure
 
- **AutoDS3D**
-Instructions for running AutoDS3D via the provided GUI.
-1, in app.py file, choose the machine where you want to run this app. If it’s a remote server, comment the line for local computer and give the server IP address, as shown below. 
+This project is divided into two main components:
 
-2, set a python environment
+- **AutoDS** — 2D Deep-STORM model training and inference  
+- **AutoDS3D** — GUI-based 3D localization pipeline
 
-3, run app.py in either a terminal or programing software, e.g. PyCharm to obtain URL. Use the URL in a web browser to enter the web application, as shown below.
- 
-4, fill in the parameters and feel safe to use default values. Those parameters will be tuned in the following step-by-step operation. 
+---
 
-5, click characterize PSF. You will see the notification below. If the simulation is too small, consider decrease the pixel size of mask plane (with square mark in the web app). In the app folder, check phase_retrieval_results.jpg to verify the model accuracy. Check PSFs.jpg to ensure proper z range and NFP. You can tune these two parameters and re-click characterize PSF to update the imaging model.
- 
-6, click preprocess blinking images. The notification of this step is 
- 
-7, click characterize SNR. The notification is shown below. The detected MPV is related the photon count of the simulated training data in the next step. If you want to have stronger signal in training data, set a value bigger than this detected MPV value for maximum pixel value (MPV) in the web app. Note that 0 MPV in the web app means the detected value will be used. 
- 
-8, click generate training data. check the training data and tune MPV if necessary.
- 
-9, click training localization net
+## AutoDS
 
-10, verify test image index (inference test) and threshold (0-800) and then click localization test. Check sim_loc_gt_rec.jpg, sim_im_gt_rec.jpg, and exp_im_gt_rec.jpg for feedback.
-Figures
+This part contains two Jupyter notebooks:
+- **Training**: Train your own Deep-STORM model
+- **Inference**: Run AutoDS for one-click image reconstruction
 
-11. click localize. This generates a complete localization table.
+> 🔧 Pre-trained models (4 total) are available in the `models/` directory.
+
+---
+
+## AutoDS3D: Step-by-Step GUI Instructions
+
+To run the 3D GUI tool:
+
+1. **Set target machine**  
+   In `app.py`, specify whether you're running locally or on a remote server by commenting/uncommenting the appropriate line and setting the IP address.
+
+2. **Set up Python environment**  
+   Use a virtual environment with the required packages (see `requirements.txt` if provided).
+
+3. **Run the app**  
+   Execute `app.py` (e.g., via terminal or PyCharm) and open the generated URL in your browser.
+
+4. **Fill in parameters**  
+   Default values are provided and can be safely used — you can fine-tune them during later steps.
+
+5. **Characterize PSF**  
+   After clicking, check:
+   - `phase_retrieval_results.jpg` for model accuracy
+   - `PSFs.jpg` to verify Z-range and NFP  
+   Adjust pixel size and re-run if necessary.
+
+6. **Preprocess blinking images**  
+   A confirmation notification will be shown after completion.
+
+7. **Characterize SNR**  
+   After clicking:
+   - Note the detected MPV (Maximum Pixel Value)
+   - For stronger simulated signals, manually set a higher MPV
+   - Setting MPV to 0 uses the detected value
+
+8. **Generate training data**  
+   Validate the generated training data and adjust MPV as needed.
+
+9. **Train localization network**  
+   Launch the training process directly from the GUI.
+
+10. **Run localization test**  
+    - Set test image index and threshold (0–800)
+    - Check output files:
+      - `sim_loc_gt_rec.jpg`
+      - `sim_im_gt_rec.jpg`
+      - `exp_im_gt_rec.jpg`
+
+11. **Run final localization**  
+    Generates a complete localization table of your input data.
+
+---
+
+## Citation
+
+If you use this work, please cite:  
+**[One-click image reconstruction in single-molecule localization microscopy via deep learning (bioRxiv link)](LINK_HERE)**
