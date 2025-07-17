@@ -6,11 +6,12 @@ import numpy as np
 import torch
 import os
 import time
+import scipy.io as sio
 
 
 # phase retrieval
 def func1(M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_file, nfp_text,
-          NFP, zrange, device_id, state):
+          NFP, zrange, external_mask, state):
     # assemble a shared parameter dict
     param_dict = dict(
         M=M,  # magnification
@@ -19,11 +20,12 @@ def func1(M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_f
         n_immersion=n_immersion,  # refractive index of the immersion of the objective
         n_sample=n_sample,  # refractive index of the sample
         f_4f=f_4f,  # focal length of 4f system
+        NFP=0,
         ps_camera=ps_camera,  # pixel size of the camera
         ps_BFP=ps_BFP,  # pixel size at back focal plane
         # g_sigma=1.0,  # initial std of the gaussian blur kernel
         g_sigma=0.6,  # initial std of the gaussian blur kernel
-        device=torch.device('cuda:'+str(device_id) if torch.cuda.is_available() else 'cpu'),
+        device=torch.device('cuda:'+str(0) if torch.cuda.is_available() else 'cpu'),
     )
 
     # a dict for phase retrieval
@@ -36,13 +38,22 @@ def func1(M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_f
         epoch_num=250,  # optimization iterations
         loss_label=1,  # 1: gauss log likelihood, 2: l2
     )
+    if external_mask == 'None':
+        phase_mask, g_sigma, ccs = phase_retrieval(param_dict, pr_dict)
+        print(f'PSF modeling accuracy: average cc of {np.round(np.mean(ccs), decimals=4)}')
+        # print(f'blur sigma: ({g_sigma[0]}, {g_sigma[1]})')
 
-    phase_mask, g_sigma, ccs = phase_retrieval(param_dict, pr_dict)
+    else:
+        mask_dict = sio.loadmat(external_mask)
+        mask_name = list(mask_dict.keys())[3]
+        phase_mask = mask_dict[mask_name]
+
+        g_sigma = 0.6
+
     g_sigma = (np.round(0.9*g_sigma, decimals=2), np.round(1.1*g_sigma, decimals=2))
     param_dict['g_sigma'] = g_sigma
     param_dict['phase_mask'] = phase_mask
-    print(f'PSF modeling accuracy: average cc of {np.round(np.mean(ccs), decimals=4)}')
-    print(f'blur sigma: ({g_sigma[0]}, {g_sigma[1]})')
+
 
     # with open('param_dict3.pickle', 'wb') as handle:
     #     pickle.dump(param_dict, handle)
@@ -112,6 +123,7 @@ def func3(photon_roi, max_pv, state):
     param_dict['Nsig_range'] = Nsig_range  # the param_dict in state will also be updated
     param_dict['bg'] = 0
 
+
     print(f'noise baseline: ({baseline[0]}, {baseline[1]})')
     print(f'noise std: ({read_std[0]}, {read_std[1]})')
     print(f'photon: ({Nsig_range[0]}, {Nsig_range[1]})')
@@ -131,13 +143,17 @@ def func4(num_z_voxel, training_im_size, us_factor, max_num_particles, num_train
     param_dict['num_particles_range'] = [1, max_num_particles]
     param_dict['blob_r'] = 2
     param_dict['blob_sigma'] = 0.65
-    param_dict['blob_maxv'] = 800   # maximum value of network output
+    param_dict['blob_maxv'] = 1000   # maximum value of network output
+
+    param_dict['non_uniform_noise_flag'] = True
+    param_dict['bitdepth'] = 16
 
     param_dict['HH'] = int(param_dict['H'] * us_factor)  # in case upsampling is needed
     param_dict['WW'] = int(param_dict['W'] * us_factor)
     param_dict['buffer_HH'] = int(param_dict['psf_half_size'] * us_factor)
     param_dict['buffer_WW'] = int(param_dict['psf_half_size'] * us_factor)
 
+    param_dict['ps_xy'] = param_dict['ps_camera'] / param_dict['M']
     vs_xy = param_dict['ps_camera'] / param_dict['M'] / us_factor  # index of each voxel is at the center of the voxel
     vs_z = ((param_dict['zrange'][1] - param_dict['zrange'][0]) / param_dict['D'])   # no buffer zone in z axis
     param_dict['vs_xy'] = vs_xy
@@ -195,14 +211,14 @@ def func6_2(threshold, state):
 
 
 # one click
-def func7(M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_file, nfp_text, NFP, zrange, device_id,
+def func7(M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_file, nfp_text, NFP, zrange, external_mask,
           raw_image_folder, photon_roi, max_pv, num_z_voxel, training_im_size, us_factor,
           max_num_particles, num_training_images, projection_01, test_idx, threshold, state):
 
     t0 = time.time()
 
     func1(M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_file, nfp_text,
-          NFP, zrange, device_id, state)
+          NFP, zrange, external_mask, state)
     func2(raw_image_folder, state)
     func3(photon_roi, max_pv, state)
     func4(num_z_voxel, training_im_size, us_factor, max_num_particles, num_training_images, projection_01, state)

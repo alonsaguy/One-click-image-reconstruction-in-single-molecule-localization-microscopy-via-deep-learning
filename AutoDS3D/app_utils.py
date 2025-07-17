@@ -17,12 +17,12 @@ from torch import nn
 from torch.optim import Adam
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from DS3D.ds3d_utils import ImModel, Sampling, MyDataset, Volume2XYZ, calc_jaccard_rmse, KDE_loss3D
-from DS3D.ds3d_utils import LON as Net
-from DS3D.training_utils import TorchTrainer
+from DS3Dplus.ds3d_utils import ImModel, Sampling, MyDataset, Volume2XYZ, calc_jaccard_rmse, KDE_loss3D, ImModelBead, ImModelBase, ImModelTraining
+from DS3Dplus.ds3d_utils import LON as Net
+from DS3Dplus.training_utils import TorchTrainer
 
 import matplotlib.pyplot as plt
-from matplotlib.widgets import RectangleSelector
+# from matplotlib.widgets import RectangleSelector
 # import matplotlib
 # matplotlib.use("TkAgg")
 
@@ -191,41 +191,99 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     zstack = zstack * np.array(mask)
     z_photons = np.sum(zstack, axis=(1, 2))
 
-    # build the imaging model
-    model = ImModel_pr(param_dict)
 
-    nfps_tensor = torch.tensor(nfps).to(device)
-    xyzps_np = np.zeros((nfps.shape[0], 4))
-    xyzps_np[:, 2] = r_bead
-    xyzps_np[:, 3] = z_photons
-    xyzps_tensor = torch.tensor(xyzps_np, device=device)
 
-    std_tensor = torch.tensor(stds, device=device)  # for gaussian likelihood loss
+    im_model_bead = ImModelBead(param_dict)
+    im_model_bead.phase_mask.requires_grad_(True)
+    im_model_bead.g_sigma.requires_grad_(True)
 
-    psf_target = torch.tensor(zstack).to(device)
+    num_zs = zstack.shape[0]
+    xyzps = np.zeros((num_zs, 4))
+    xyzps[:, 3] = z_photons
+    xyzps = torch.tensor(xyzps, device=device)
+    nfps_np = nfps.copy()
+    nfps = torch.tensor(nfps, device=device).unsqueeze(1)
 
-    optimizer = torch.optim.Adam([{'params': model.phase_mask, 'lr': 1e-1},
-                                  {'params': model.g_sigma, 'lr': 1e-2}
+    y = torch.tensor(zstack, device=device)  # measurement
+    optimizer = torch.optim.Adam([{'params': im_model_bead.phase_mask, 'lr': 0.1},
+                                  {'params': im_model_bead.g_sigma, 'lr': 0.06}
                                   ])
     epoch_loss = []
-    for i in range(epoch_num):
-        psfs = model(xyzps_tensor, nfps_tensor)
-        if loss_label == 1:  # gaussian likelihood
-            loss = torch.sum((torch.log(torch.sqrt(2 * pi * (psfs + std_tensor ** 2 + 1e-9))) +
-                              0.5 * ((psf_target - psfs) ** 2) / (psfs + std_tensor ** 2)) * (psf_target != 0))
-        elif loss_label == 2:  # mse loss
-            loss = torch.nn.functional.mse_loss(psfs, psf_target)
+    for i in range(100):
+        fx = im_model_bead(xyzps, nfps)
+        loss = torch.mean((fx - y) ** 2)
+        loss = torch.nn.functional.mse_loss(fx, y)
+        # loss = torch.mean(fx-y*torch.log(fx))
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         epoch_loss.append(loss.item())
 
-    phase_mask = model.phase_mask.detach().cpu().numpy()
-    phase_mask = np.angle(np.exp(1j * phase_mask))
-    g_sigma = model.g_sigma.item()
+    optimizer = torch.optim.Adam([{'params': im_model_bead.phase_mask, 'lr': 0.02},
+                                  {'params': im_model_bead.g_sigma, 'lr': 0.01}
+                                  ])
+    for i in range(100):
+        with torch.no_grad():
+            fx = im_model_bead(xyzps, nfps)
+            model_psfs = fx.detach().cpu().numpy()
+            ccs = calculate_cc(zstack, model_psfs)
+            ids = np.argsort(ccs)[:5]
 
-    psfs_np = psfs.detach().cpu().numpy()
-    ccs = calculate_cc(psfs_np, zstack)
+        fx = im_model_bead(xyzps[ids], nfps[ids])
+        loss = torch.nn.functional.mse_loss(fx, y[ids])
+        # loss = torch.mean(fx-y[ids]*torch.log(fx))
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        epoch_loss.append(loss.item())
+
+    with torch.no_grad():
+        fx = im_model_bead(xyzps, nfps)
+        model_psfs = fx.detach().cpu().numpy()
+        ccs = calculate_cc(zstack, model_psfs)
+
+    mask_rec = im_model_bead.phase_mask.detach().cpu().numpy()
+    mask_rec = np.angle(np.exp(1j * mask_rec))
+    g_sigma = im_model_bead.g_sigma.detach().item()
+    psfs_np = model_psfs
+    phase_mask = mask_rec
+
+    # # build the imaging model
+    # model = ImModel_pr(param_dict)
+    #
+    # nfps_tensor = torch.tensor(nfps).to(device)
+    # xyzps_np = np.zeros((nfps.shape[0], 4))
+    # xyzps_np[:, 2] = r_bead
+    # xyzps_np[:, 3] = z_photons
+    # xyzps_tensor = torch.tensor(xyzps_np, device=device)
+    #
+    # std_tensor = torch.tensor(stds, device=device)  # for gaussian likelihood loss
+    #
+    # psf_target = torch.tensor(zstack).to(device)
+    #
+    # optimizer = torch.optim.Adam([{'params': model.phase_mask, 'lr': 1e-1},
+    #                               {'params': model.g_sigma, 'lr': 1e-2}
+    #                               ])
+    # epoch_loss = []
+    # for i in range(epoch_num):
+    #     psfs = model(xyzps_tensor, nfps_tensor)
+    #     if loss_label == 1:  # gaussian likelihood
+    #         loss = torch.sum((torch.log(torch.sqrt(2 * pi * (psfs + std_tensor ** 2 + 1e-9))) +
+    #                           0.5 * ((psf_target - psfs) ** 2) / (psfs + std_tensor ** 2)) * (psf_target != 0))
+    #     elif loss_label == 2:  # mse loss
+    #         loss = torch.nn.functional.mse_loss(psfs, psf_target)
+    #     optimizer.zero_grad()
+    #     loss.backward()
+    #     optimizer.step()
+    #     epoch_loss.append(loss.item())
+    #
+    # phase_mask = model.phase_mask.detach().cpu().numpy()
+    # phase_mask = np.angle(np.exp(1j * phase_mask))
+    # g_sigma = model.g_sigma.item()
+    #
+    # psfs_np = psfs.detach().cpu().numpy()
+    # ccs = calculate_cc(psfs_np, zstack)
+
 
     if fig_flag:
         fig = plt.figure(1, figsize=(7, 4))
@@ -252,7 +310,7 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
         ax.set_title('model')
 
         ax = fig.add_subplot(gs[2, :])
-        ax.plot(nfps, ccs)
+        ax.plot(nfps_np, ccs)
         ax.set_xlabel('NFP [um]')
         ax.set_ylabel('CC')
         # ax.set_title('model accuracy')
@@ -315,13 +373,17 @@ def mu_std_p(param_dict, noise_dict):
 
     max_map = np.max(ims, axis=0)
     mean_map = np.mean(ims, axis=0)
-    # median_map = np.median(ims, axis=0)
-    std_map = np.std(ims, axis=0)
 
-    bg_threshold = 5.0
-    bg = ims[:, max_map < (mean_map + bg_threshold * std_map)]
-    bg_means, bg_stds = np.mean(bg, axis=0), np.std(bg, axis=0)
-    mu, std = np.min(bg_means), bg_stds[np.argmin(bg_means)]
+    r_idx, c_idx = np.unravel_index(np.argmin(mean_map), mean_map.shape)
+    bg_pixel = ims[:, r_idx, c_idx]
+    mu, std = np.mean(bg_pixel), np.std(bg_pixel)
+
+    # std_map = np.std(ims, axis=0)
+    #
+    # bg_threshold = 5.0
+    # bg = ims[:, max_map < (mean_map + bg_threshold * std_map)]
+    # bg_means, bg_stds = np.mean(bg, axis=0), np.std(bg, axis=0)
+    # mu, std = np.min(bg_means), bg_stds[np.argmin(bg_means)]
 
     # mu, std = np.mean(bg, axis=0).median(), np.std(bg, axis=0).median()
 
@@ -338,7 +400,7 @@ def mu_std_p(param_dict, noise_dict):
         exp_maxv = max_pv
     print(f'Photon count characterization number MPV: {exp_maxv}.')
 
-    model = ImModel(param_dict)
+    model = ImModelBase(param_dict)
 
     # zn = noise_dict['zn']
     # xyzps = np.zeros((zn, 4))
@@ -363,7 +425,7 @@ def training_data_func(param_dict):
 
     device = param_dict['device']
     # imaging model
-    model = ImModel(param_dict)
+    model = ImModelTraining(param_dict)
     # sampling model
     sampling = Sampling(param_dict)
     sampling.show_volume()  # plot volume
@@ -385,10 +447,8 @@ def training_data_func(param_dict):
     ntrain = param_dict['n_ims']
     for i in range(ntrain):
         xyzps, xyz_ids, blob3d = sampling.xyzp_batch()
-        # im = model(torch.from_numpy(xyzps).to(device)).cpu().numpy().astype(np.float32)
-        im = model(torch.from_numpy(xyzps).to(device)).cpu().numpy()
+        im = model(torch.from_numpy(xyzps).to(device)).cpu().numpy().astype(np.uint16)
         if param_dict['project_01']:
-            # im = ((im - im.min()) / (im.max() - im.min()))
             im = ((im - im.min()) / (im.max() - im.min())).astype(np.float32)
 
         x_name = str(i).zfill(5) + '.tif'
@@ -510,7 +570,7 @@ def inference_func1(param_dict, test_idx, fig_flag=True):  # simulation and try 
     net.load_state_dict(checkpoint['state_dict'])
 
     # simulated data
-    model = ImModel(param_dict)
+    model = ImModelTraining(param_dict)
     sampling = Sampling(param_dict)
     volume2xyz = Volume2XYZ(param_dict)
 
@@ -594,7 +654,7 @@ def inference_func1(param_dict, test_idx, fig_flag=True):  # simulation and try 
 
     H, W = im.shape
     param_dict['H'], param_dict['W'] = H, W
-    model = ImModel(param_dict)
+    model = ImModelTraining(param_dict)
 
     if H > param_dict['phase_mask'].shape[0] or W > param_dict['phase_mask'].shape[1]:
         sf = max(H // param_dict['phase_mask'].shape[0]+1, W // param_dict['phase_mask'].shape[1]+1)
@@ -609,8 +669,8 @@ def inference_func1(param_dict, test_idx, fig_flag=True):  # simulation and try 
         HW = int(HW + 1 - (HW % 2))  # make it odd
 
         phase_mask = interpolate(torch.tensor(phase_mask).unsqueeze(0).unsqueeze(1), size=(HW, HW))
-        param_dict['phase_mask'] = phase_mask.squeeze(0).squeeze(1).numpy()
-        model = ImModel(param_dict)
+        param_dict['phase_mask'] = phase_mask[0, 0].numpy()
+        model = ImModelTraining(param_dict)
 
     nphotons_rec = 1e4 * np.ones(xyz_rec.shape[0])
     psfs_rec = model.get_psfs(torch.from_numpy(np.c_[xyz_rec, nphotons_rec]).to(device)).cpu().numpy()
@@ -697,7 +757,7 @@ def inference_func2(param_dict):
                 frm_rec = (im_ind + 1) * np.ones(nemitters)
                 xnm = (xyz_rec[:, 0] + cw * param_dict['vs_xy']*param_dict['us_factor']) * 1000
                 ynm = (xyz_rec[:, 1] + ch * param_dict['vs_xy']*param_dict['us_factor']) * 1000
-                znm = (xyz_rec[:, 2] - param_dict['zrange'][0]) * 1000  # make sure they are above 0
+                znm = (xyz_rec[:, 2]) * 1000  # make sure they are above 0
                 xyz_save = np.c_[xnm, ynm, znm]
 
                 results = np.vstack((results, np.column_stack((frm_rec, xyz_save, conf_rec))))
@@ -713,9 +773,9 @@ def inference_func2(param_dict):
 
     # write the results to a csv file named "localizations.csv" under the exp img folder
     row_list = results.tolist()
-    curr_dt = datetime.now()
-    curr_date, curr_time = f'{curr_dt.month}_{curr_dt.day}', f'{curr_dt.hour}_{curr_dt.minute}'
-    file_name = os.path.join(os.getcwd(), f'localizations' + '_' + curr_date + '_' + curr_time + '.csv')
+
+    time_now = datetime.today().strftime('%m-%d_%H-%M')
+    file_name = os.path.join(os.getcwd(), 'localizations_' + time_now + '.csv')
     with open(file_name, 'w', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(row_list)
