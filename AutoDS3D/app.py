@@ -1,10 +1,5 @@
-
-
 import tkinter as tk
 from tkinter import filedialog
-from skimage import io
-import matplotlib.pyplot as plt
-from matplotlib.widgets import RectangleSelector
 import matplotlib
 matplotlib.use("TkAgg")
 
@@ -15,19 +10,26 @@ from func_utils import func1, func2, func3, func4, func5, func6_1, func6_2, func
 output_window = gr.Textbox(label="Output (concise response to button click, see more detailed outputs in the app running terminal)")
 
 with gr.Blocks() as demo:
+
     gr.Markdown(
         """
         # AutoDS3D
-
-        An automated and enhanced version of DeepSTORM3D (DS3D) for PSF-engineering-based 3D localization microscopy
-        
-        **Input**: optical parameters, a PSF z-stack, and raw image sequence (from blinking video)
-        
-        **Output**: a localization list, as well as some intermediate results (figures)
-        
-        **Operation**: either step by step or one click
         """
     )
+    with gr.Accordion('Description', open=False):
+        gr.Markdown(
+            """
+            An automated and enhanced version of DeepSTORM3D (DS3D) for PSF-engineering-based 3D localization microscopy
+
+            **Input**: optical parameters, a PSF z-stack, and raw image sequence (from blinking video)
+
+            **Output**: a localization list, as well as some intermediate results (figures)
+
+            **Operation**: either step by step or one click
+            """
+        )
+
+
 
     # define inputs
     state = gr.State(value={})  # global container/holder for parameter sharing
@@ -43,7 +45,7 @@ with gr.Blocks() as demo:
             f_4f = gr.Number(label="focal length of the 4f setup  [um]", value=100e3)
             ps_camera = gr.Number(label="★camera pixel size [um]", value=11)
             ps_BFP = gr.Number(label="■ pixel size of mask plane [um]", value=30)
-            device_id = gr.Number(label="GPU id", value=0)
+            external_mask = gr.Textbox(label="external_mask", value='None')
 
         # calibration z-stack parameters
         with gr.Accordion('parameter column 2', open=False):
@@ -87,7 +89,7 @@ with gr.Blocks() as demo:
 
     with gr.Row():
         input1 = [M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_file, nfp_text,
-                  NFP, zrange, device_id, state]
+                  NFP, zrange, external_mask, state]
         button1 = gr.Button("characterize PSF")
         button1.click(func1, inputs=input1, outputs=output_window)
 
@@ -114,7 +116,7 @@ with gr.Blocks() as demo:
         button6_1.click(func6_2, inputs=[threshold, state], outputs=output_window)
 
 
-    input7 = [M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_file, nfp_text, NFP, zrange, device_id,
+    input7 = [M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_file, nfp_text, NFP, zrange, external_mask,
           raw_image_folder, photon_roi, max_pv, num_z_voxel, training_im_size, us_factor,
           max_num_particles, num_training_images, projection_01, test_idx, threshold, state]
     button7 = gr.Button("ONE CLICK", variant='huggingface')
