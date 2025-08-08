@@ -165,7 +165,7 @@ def func4(num_z_voxel, training_im_size, us_factor, max_num_particles, num_train
     else:
         param_dict['project_01'] = True
 
-    param_dict['n_ims'] = num_training_images  # the number of images for training
+    param_dict['n_ims'] = int(num_training_images)  # the number of images for training
 
     training_data_func(param_dict)
 
@@ -231,4 +231,5 @@ def func7(M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_f
     print(t1-t0)
 
     return 'One click is done.'
+
 
