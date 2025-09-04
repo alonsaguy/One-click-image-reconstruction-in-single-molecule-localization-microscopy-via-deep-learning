@@ -20,13 +20,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from DS3Dplus.ds3d_utils import ImModel, Sampling, MyDataset, Volume2XYZ, calc_jaccard_rmse, KDE_loss3D, ImModelBead, ImModelBase, ImModelTraining
 from DS3Dplus.ds3d_utils import LON as Net
 from DS3Dplus.training_utils import TorchTrainer
-
 import matplotlib.pyplot as plt
-# from matplotlib.widgets import RectangleSelector
-# import matplotlib
-# matplotlib.use("TkAgg")
 
-# import tifffile
 
 class ImModel_pr(nn.Module):
     def __init__(self, params):
@@ -165,10 +160,7 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     loss_label = pr_dict['loss_label']
 
     # read the zstack and set the image size for the imaging model
-
     zstack = io.imread(file_path)  # axis0 -- z position
-    # zstack = tifffile.imread(file_path)
-    print(f'zstack shape: ({zstack.shape[1]}, {zstack.shape[2]})')
 
     corner_size = max(7, int(0.1*zstack.shape[1]))
 
@@ -191,9 +183,10 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     zstack = zstack * np.array(mask)
     z_photons = np.sum(zstack, axis=(1, 2))
 
-
-
     im_model_bead = ImModelBead(param_dict)
+
+    print(f'BFP aperture in pixel unit: {int(np.round(im_model_bead.pn_pupil))}/{im_model_bead.N}.')
+
     im_model_bead.phase_mask.requires_grad_(True)
     im_model_bead.g_sigma.requires_grad_(True)
 
@@ -211,9 +204,10 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     epoch_loss = []
     for i in range(100):
         fx = im_model_bead(xyzps, nfps)
-        loss = torch.mean((fx - y) ** 2)
-        loss = torch.nn.functional.mse_loss(fx, y)
-        # loss = torch.mean(fx-y*torch.log(fx))
+
+        loss = torch.nn.functional.mse_loss(fx, y)  # mse
+        # loss = torch.mean(fx-y*torch.log(fx))  # gauss log likelihood
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -248,42 +242,6 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     psfs_np = model_psfs
     phase_mask = mask_rec
 
-    # # build the imaging model
-    # model = ImModel_pr(param_dict)
-    #
-    # nfps_tensor = torch.tensor(nfps).to(device)
-    # xyzps_np = np.zeros((nfps.shape[0], 4))
-    # xyzps_np[:, 2] = r_bead
-    # xyzps_np[:, 3] = z_photons
-    # xyzps_tensor = torch.tensor(xyzps_np, device=device)
-    #
-    # std_tensor = torch.tensor(stds, device=device)  # for gaussian likelihood loss
-    #
-    # psf_target = torch.tensor(zstack).to(device)
-    #
-    # optimizer = torch.optim.Adam([{'params': model.phase_mask, 'lr': 1e-1},
-    #                               {'params': model.g_sigma, 'lr': 1e-2}
-    #                               ])
-    # epoch_loss = []
-    # for i in range(epoch_num):
-    #     psfs = model(xyzps_tensor, nfps_tensor)
-    #     if loss_label == 1:  # gaussian likelihood
-    #         loss = torch.sum((torch.log(torch.sqrt(2 * pi * (psfs + std_tensor ** 2 + 1e-9))) +
-    #                           0.5 * ((psf_target - psfs) ** 2) / (psfs + std_tensor ** 2)) * (psf_target != 0))
-    #     elif loss_label == 2:  # mse loss
-    #         loss = torch.nn.functional.mse_loss(psfs, psf_target)
-    #     optimizer.zero_grad()
-    #     loss.backward()
-    #     optimizer.step()
-    #     epoch_loss.append(loss.item())
-    #
-    # phase_mask = model.phase_mask.detach().cpu().numpy()
-    # phase_mask = np.angle(np.exp(1j * phase_mask))
-    # g_sigma = model.g_sigma.item()
-    #
-    # psfs_np = psfs.detach().cpu().numpy()
-    # ccs = calculate_cc(psfs_np, zstack)
-
 
     if fig_flag:
         fig = plt.figure(1, figsize=(7, 4))
@@ -317,7 +275,7 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
 
         plt.savefig('phase_retrieval_results.jpg', bbox_inches='tight', dpi=300)
         plt.clf()
-        print(f'phase retrieval results: phase_retrieval_results.jpg')
+        # print(f'phase retrieval results: phase_retrieval_results.jpg')
 
     return phase_mask, g_sigma, ccs
 
@@ -335,25 +293,33 @@ def background_removal(im_folder, num=100):
 
     im_files = sorted(os.listdir(im_folder))  # make sure the names are sortable
     n_ims = len(im_files)
-    pointer = 0
-    for i in range(n_ims//num):
-        im_names = [im_files[pointer+j] for j in range(num)]
-        im_stack = [io.imread(os.path.join(im_folder, im_files[pointer+j])) for j in range(num)]
-        pointer += num
+    if n_ims > num:
+        pointer = 0
+        for i in range(n_ims//num):
+            im_names = [im_files[pointer+j] for j in range(num)]
+            im_stack = [io.imread(os.path.join(im_folder, im_files[pointer+j])) for j in range(num)]
+            pointer += num
+            im_stack = np.array(im_stack)
+            im_stack = im_stack-np.min(im_stack, axis=0)
+
+            for j in range(num):  # save
+                io.imsave(os.path.join(save_folder, im_names[j]), im_stack[j], check_contrast=False)
+
+        # remainder of n_ims/num
+        im_stack = [io.imread(os.path.join(im_folder, im_files[-j])) for j in range(num)]
+        im_stack = np.array(im_stack)
+        im_min = np.min(im_stack, axis=0)
+        for j in range(pointer, n_ims):
+            im = io.imread(os.path.join(im_folder, im_files[j]))
+            im = im-im_min
+            io.imsave(os.path.join(save_folder, im_files[j]), im, check_contrast=False)
+
+    else:
+        im_stack = [io.imread(os.path.join(im_folder, im_files[j])) for j in range(n_ims)]
         im_stack = np.array(im_stack)
         im_stack = im_stack-np.min(im_stack, axis=0)
-
-        for j in range(num):  # save
-            io.imsave(os.path.join(save_folder, im_names[j]), im_stack[j], check_contrast=False)
-
-    # remainder of n_ims/num
-    im_stack = [io.imread(os.path.join(im_folder, im_files[-j])) for j in range(num)]
-    im_stack = np.array(im_stack)
-    im_min = np.min(im_stack, axis=0)
-    for j in range(pointer, n_ims):
-        im = io.imread(os.path.join(im_folder, im_files[j]))
-        im = im-im_min
-        io.imsave(os.path.join(save_folder, im_files[j]), im, check_contrast=False)
+        for j in range(n_ims):
+            io.imsave(os.path.join(save_folder, im_files[j]), im_stack[j], check_contrast=False)
 
     return save_folder
 
@@ -362,14 +328,14 @@ def mu_std_p(param_dict, noise_dict):
     im_br_folder = param_dict['im_br_folder']
     num = noise_dict['num_ims']
     # noise_roi = noise_dict['noise_roi']
-    photon_roi = noise_dict['photon_roi']
+    snr_roi = noise_dict['snr_roi']
     max_pv = noise_dict['max_pv']
 
     im_names = sorted(os.listdir(im_br_folder))
-    im_names = im_names[-num:]  # at the end of the video, probably with sparse molecules
+    im_names = im_names[-num:]  # at the end of the video, probably with sparse molecules. It's ok if num>len(im_names)
     ims = np.array([io.imread(os.path.join(im_br_folder, im_name)) for im_name in im_names])
 
-    ims = ims[:, photon_roi[0]:photon_roi[2], photon_roi[1]:photon_roi[3]]
+    ims = ims[:, snr_roi[0]:snr_roi[2], snr_roi[1]:snr_roi[3]]
 
     max_map = np.max(ims, axis=0)
     mean_map = np.mean(ims, axis=0)
@@ -378,36 +344,14 @@ def mu_std_p(param_dict, noise_dict):
     bg_pixel = ims[:, r_idx, c_idx]
     mu, std = np.mean(bg_pixel), np.std(bg_pixel)
 
-    # std_map = np.std(ims, axis=0)
-    #
-    # bg_threshold = 5.0
-    # bg = ims[:, max_map < (mean_map + bg_threshold * std_map)]
-    # bg_means, bg_stds = np.mean(bg, axis=0), np.std(bg, axis=0)
-    # mu, std = np.min(bg_means), bg_stds[np.argmin(bg_means)]
-
-    # mu, std = np.mean(bg, axis=0).median(), np.std(bg, axis=0).median()
-
-    # mv_threshold = 6
-    # mvs = max_map[max_map > (mean_map + mv_threshold * std_map)]
-
-    # patches = ims[:, noise_roi[0]:noise_roi[2], noise_roi[1]:noise_roi[3]]
-    # mus, stds = np.mean(patches, axis=(1, 2)), np.std(patches, axis=(1, 2))
-
-    # mu, std = np.median(mus), np.median(stds)  # choose the median
     if max_pv == 0:
-        exp_maxv = np.max(max_map)
+        exp_maxv = np.max(max_map)  # if max_pv is 0 in the GUI
     else:
-        exp_maxv = max_pv
-    print(f'Photon count characterization number MPV: {exp_maxv}.')
+        exp_maxv = max_pv  # detect max_pv in the selected ROI
+
+    print(f'Detected MPV: {exp_maxv}.')
 
     model = ImModelBase(param_dict)
-
-    # zn = noise_dict['zn']
-    # xyzps = np.zeros((zn, 4))
-    # xyzps[:, 2] = np.linspace(param_dict['zrange'][0], param_dict['zrange'][1], zn)  # set z values
-    # xyzps = torch.from_numpy(xyzps).to(param_dict['device'])
-    # xyzps[:, 3] = 1e4
-    # ims = np.array([model.get_psfs(xyzps[i:i + 1, :]).cpu().numpy()[0] for i in range(zn)])
 
     photon_count = 1e4
     xyzps = np.array([[0, 0, (param_dict['zrange'][0]+param_dict['zrange'][1])/2, photon_count]])  # take the middle z
@@ -418,7 +362,7 @@ def mu_std_p(param_dict, noise_dict):
     mv = np.mean(maxvs) + mu  # model.get_psfs doesn't include noise yet
     p = photon_count/mv * exp_maxv
 
-    return mu, std, p
+    return mu, std, p, exp_maxv
 
 
 def training_data_func(param_dict):
@@ -434,7 +378,7 @@ def training_data_func(param_dict):
     td_folder = param_dict['td_folder']
     if os.path.exists(td_folder):  # delete the directory if it exists
         shutil.rmtree(td_folder)
-    x_folder = td_folder + '/x'
+    x_folder = os.path.join(td_folder, 'x')
     os.makedirs(x_folder)  # make the folder for training data
 
     # labels_dict for training
@@ -638,8 +582,6 @@ def inference_func1(param_dict, test_idx, fig_flag=True):  # simulation and try 
 
         print('Network inference on simulated an image: sim_im_gt_rec.jpg')
 
-
-
     exp_imgs_path = param_dict['im_br_folder']
     img_names = sorted(os.listdir(exp_imgs_path))
 
@@ -660,10 +602,6 @@ def inference_func1(param_dict, test_idx, fig_flag=True):  # simulation and try 
         sf = max(H // param_dict['phase_mask'].shape[0]+1, W // param_dict['phase_mask'].shape[1]+1)
         param_dict['ps_BFP'] /= sf
         phase_mask = param_dict['phase_mask']
-
-        # H_, W_ = phase_mask.shape[0]*sf, phase_mask.shape[1]*sf
-        # H_ = H_ + 1 - H_ % 2
-        # W_ = W_ + 1 - W_ % 2
 
         HW = np.floor(param_dict['f_4f'] * param_dict['lamda'] / (param_dict['ps_camera'] * param_dict['ps_BFP']))  # simulation size
         HW = int(HW + 1 - (HW % 2))  # make it odd

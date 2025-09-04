@@ -8,7 +8,7 @@ from func_utils import func1, func2, func3, func4, func5, func6_1, func6_2, func
 import matplotlib.pyplot as plt
 from matplotlib.widgets import RectangleSelector
 
-output_window = gr.Textbox(label="Output (concise response to button click, see more detailed outputs in the app running terminal)")
+output_window = gr.Textbox(label="Output (response to button click)")
 
 with gr.Blocks() as demo:
 
@@ -20,17 +20,22 @@ with gr.Blocks() as demo:
     with gr.Accordion('Description', open=False):
         gr.Markdown(
             """
-            An automated and enhanced version of DeepSTORM3D (DS3D) for PSF-engineering-based 3D localization microscopy
-
-            **Input**: optical parameters, a PSF z-stack, and raw image sequence (from blinking video)
-
-            **Output**: a localization list, as well as some intermediate results (figures)
-
-            **Operation**: either step by step or one click
+            **An automated and enhanced version of DeepSTORM3D (DS3D) for PSF-engineering-based 3D localization microscopy**
+            
+            **Inputs**
+            - Optical parameters  
+            - PSF z-stack  
+            - Image sequence (from a blinking video)
+            
+            **Outputs**
+            - Localization list  
+            - Intermediate results (figures)
+            
+            **Operation Modes**
+            - Step by step  
+            - One click
             """
         )
-
-
 
     # define inputs
     state = gr.State(value={})  # global container/holder for parameter sharing
@@ -46,16 +51,14 @@ with gr.Blocks() as demo:
             f_4f = gr.Number(label="focal length of the 4f setup  [um]", value=100e3)
             ps_camera = gr.Number(label="★camera pixel size [um]", value=11)
             ps_BFP = gr.Number(label="■ pixel size of mask plane [um]", value=30)
-            external_mask = gr.Textbox(label="external_mask", value='None')
+            external_mask = gr.Textbox(label="external mask", value='None')
 
         # calibration z-stack parameters
         with gr.Accordion('parameter column 2', open=False):
-            zstack_file = gr.Textbox(label='★z-stack file (within app folder)', value=r'./dataset1/zstack1_-35_20.tif')
+            zstack_file = gr.Textbox(label='★z-stack file (within app folder)', value=r'.\dataset1\zstack1_-35_20.tif')
             nfp_text = gr.Textbox(label="★z-stack NFPs (start, end, number) [um]", value='-3.5, 2.0, 56')
-
             # zstack_file = gr.Textbox(label='★z-stack file (within app folder)', value=r'zstack2_-32_18.tif')
             # nfp_text = gr.Textbox(label="★z-stack NFPs (start, end, number) [um]", value='-3.2, 1.8, 51')
-
             # zstack_file = gr.Textbox(label='★z-stack file (within app folder)', value=r'zstack3_-06_06.tif')
             # nfp_text = gr.Textbox(label="★z-stack NFPs (start, end, number) [um]", value='-0.6, 0.6, 25')
 
@@ -66,11 +69,11 @@ with gr.Blocks() as demo:
             zrange = gr.Textbox(label='★expected z range (z_min, z_max) [um]', value='0, 4')
             # zrange = gr.Textbox(label='★expected z range (z_min, z_max) [um]', value='0, 1.0')
 
-            raw_image_folder = gr.Textbox(label='★image folder (within app folder)', value=r'./dataset1/ims1')
+            raw_image_folder = gr.Textbox(label='★image folder (within app folder)', value=r'.\dataset1\ims')
             # raw_image_folder = gr.Textbox(label='★image folder (within app folder)', value=r'ims2')
             # raw_image_folder = gr.Textbox(label='★image folder (within app folder)', value=r'ims3')
 
-            photon_roi = gr.Textbox(label='★SNR detection ROI (r0, c0, r1, c1)', value='0, 0, 40, 40')
+            snr_roi = gr.Textbox(label='★SNR detection ROI (r0, c0, r1, c1)', value='0, 0, 40, 40')
             # photon_roi = gr.Textbox(label='★a sparse ROI [r0, c0, r1, c1]', value='0, 0, 80, 80')
             # photon_roi = gr.Textbox(label='★a sparse ROI (r0, c0, r1, c1)', value='80, 80, 100, 100')
 
@@ -84,47 +87,46 @@ with gr.Blocks() as demo:
             us_factor = gr.Number(label='★up-sampling factor (options: 1, 2, 4)', value=1)
             max_num_particles = gr.Number(label='maximum number of particles', value=35)
             num_training_images = gr.Number(label='number of training images', value=10000)
-            test_idx = gr.Number(label='■ test image index (inference test)', value=10)
-            threshold = gr.Number(label='■ threshold (0-800)', value=40)
 
+            previous_param_dict = gr.Textbox(label="external training file", value='None')
+
+            test_idx = gr.Number(label='■ test image index', value=1)
+            threshold = gr.Number(label='■ threshold (0-1000)', value=40)
+
+    input_all = [M, NA,  n_immersion, lamda, n_sample, f_4f, ps_camera, ps_BFP, external_mask,
+                 zstack_file, nfp_text, NFP, zrange, raw_image_folder, snr_roi, max_pv, projection_01,
+                 num_z_voxel, training_im_size, us_factor, max_num_particles, num_training_images, previous_param_dict, test_idx, threshold,
+                 state]
 
     with gr.Row():
-        input1 = [M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_file, nfp_text,
-                  NFP, zrange, external_mask, state]
-        button1 = gr.Button("characterize PSF")
-        button1.click(func1, inputs=input1, outputs=output_window)
 
-        input2 = [raw_image_folder, state]
-        button2 = gr.Button("preprocess blinking images")
-        button2.click(func2, inputs=input2, outputs=output_window)
+        button1 = gr.Button("characterize PSF")
+        button1.click(func1, inputs=input_all, outputs=output_window)
+
+        button2 = gr.Button("preprocess images")
+        button2.click(func2, inputs=input_all, outputs=output_window)
 
         button3 = gr.Button("characterize SNR")
-        button3.click(func3, inputs=[photon_roi, max_pv, state], outputs=output_window)
+        button3.click(func3, inputs=input_all, outputs=output_window)
 
     with gr.Row():
-        button4 = gr.Button("generate training data")
-        button4.click(func4, inputs=[num_z_voxel, training_im_size, us_factor, max_num_particles,
-                                     num_training_images, projection_01, state], outputs=output_window)
+        button4 = gr.Button("simulate training data")
+        button4.click(func4, inputs=input_all, outputs=output_window)
 
-        button5 = gr.Button("train localization net")
-        button5.click(func5, inputs=[state], outputs=output_window)
+        button5 = gr.Button("train a localization neural net")
+        button5.click(func5, inputs=input_all, outputs=output_window)
 
     with gr.Row():
-        button6_0 = gr.Button("test inference")
-        button6_0.click(func6_1, inputs=[threshold, test_idx, state], outputs=output_window)
+        button6_0 = gr.Button("test the net")
+        button6_0.click(func6_1, inputs=input_all, outputs=output_window)
 
-        button6_1 = gr.Button("localize")
-        button6_1.click(func6_2, inputs=[threshold, state], outputs=output_window)
+        button6_1 = gr.Button("localize all")
+        button6_1.click(func6_2, inputs=input_all, outputs=output_window)
 
-
-    input7 = [M, NA, lamda, n_immersion, n_sample, f_4f, ps_camera, ps_BFP, zstack_file, nfp_text, NFP, zrange, external_mask,
-          raw_image_folder, photon_roi, max_pv, num_z_voxel, training_im_size, us_factor,
-          max_num_particles, num_training_images, projection_01, test_idx, threshold, state]
     button7 = gr.Button("ONE CLICK", variant='huggingface')
-    button7.click(func7, inputs=input7, outputs=output_window)
+    button7.click(func7, inputs=input_all, outputs=output_window)
 
     output_window.render()
-
 
 
 def choose_file():
@@ -165,8 +167,8 @@ if __name__ == "__main__":
     #     plt.show()
 
     demo.launch(share=False)  # local computer
-
     # demo.launch(share=False, server_name="132.68.109.79")  # remote server
+
 
 
 
