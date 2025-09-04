@@ -240,7 +240,7 @@ class ImModel(nn.Module):
         plt.axis('off')
         plt.savefig('PSFs.jpg', bbox_inches='tight', dpi=300)
         plt.clf()
-        print('imaging model: PSFs.jpg')
+        print('Imaging model: PSFs.jpg')
 
 
 class ImModelBase(nn.Module):
