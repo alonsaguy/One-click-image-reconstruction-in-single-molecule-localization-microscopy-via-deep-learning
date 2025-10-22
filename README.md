@@ -20,6 +20,10 @@ This project is divided into two main components:
 
 ## AutoDS
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](
+https://colab.research.google.com/github/<USER>/<REPO>/blob/<BRANCH>/AutoDS_inference.ipynb
+)
+
 This part contains two Jupyter notebooks:
 - **Training**: Train your own Deep-STORM model
 - **Inference**: Run AutoDS for one-click image reconstruction
