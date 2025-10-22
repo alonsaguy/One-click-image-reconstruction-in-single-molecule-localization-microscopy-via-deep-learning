@@ -20,8 +20,8 @@ This project is divided into two main components:
 
 ## AutoDS
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](
-https://colab.research.google.com/github/<USER>/<REPO>/blob/<BRANCH>/AutoDS_inference.ipynb
+[![Open In Colab]([https://colab.research.google.com/assets/colab-badge.svg)](
+https://colab.research.google.com/github/<USER>/<REPO>/blob/<BRANCH>/AutoDS_inference.ipynb](https://github.com/alonsaguy/One-click-image-reconstruction-in-single-molecule-localization-microscopy-via-deep-learning/blob/main/AutoDS/AutoDS_inference_v1.1.ipynb
 )
 
 This part contains two Jupyter notebooks:
