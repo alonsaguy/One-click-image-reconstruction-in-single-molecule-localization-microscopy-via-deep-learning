@@ -32,7 +32,7 @@ This part contains two Jupyter notebooks:
 
 ## AutoDS3D Instructions
 
-**see the guideline in AutoDS3D**  
+**see the guideline in AutoDS3D/guideline.doxc**  
 
 ---
 
