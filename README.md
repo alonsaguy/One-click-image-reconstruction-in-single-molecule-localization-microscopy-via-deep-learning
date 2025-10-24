@@ -31,15 +31,19 @@ This part contains two Jupyter notebooks:
 ---
 
 ## AutoDS3D Instructions
-1, one click GUI: please see AutoDS3D/guideline.docx for implementation instructions. 
-code and data: app.py, app_utils.py, func_utils.py, dataset1
 
-2, open-code: train_DS3D.ipynb, infer_DS3D.ipynb, dataset2
+The main one-click GUI provides easy access for most users. Open-source code is also available for users who want customization and explore technical details, along with in-situ PSF modeling.
+
+1, one click GUI: please see AutoDS3D/guideline.docx for implementation instructions.
+
+directly linked code and data: app.py, app_utils.py, func_utils.py, dataset1
+
+2, open-source code: train_DS3D.ipynb, infer_DS3D.ipynb, dataset2
 
 3, in_situ PSF modeling: insitu_sim.ipynb, insitu_exp.ipynb, in_situ_data
 
 updates
-10/24/2025: adjusted open-code 
+10/24/2025: adjusted open-source code 
 
 
 ## Citation
