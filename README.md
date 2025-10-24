@@ -32,8 +32,17 @@ This part contains two Jupyter notebooks:
 
 ## AutoDS3D Instructions
 
-**get into AutoDS3D directory for instructions (guideline.docx) and updates**  
+**get into AutoDS3D directory for instructions (guideline.docx) and updates**
 
+1, one click GUI: please see AutoDS3D/guideline.docx for implementation instructions. 
+code and data: app.py, app_utils.py, func_utils.py, dataset1
+
+2, open-code: train_DS3D.ipynb, infer_DS3D.ipynb, dataset2
+
+3, in_situ PSF modeling: insitu_sim.ipynb, insitu_exp.ipynb, in_situ_data
+
+updates
+10/24/2025: adjusted open-code 
 
 
 ## Citation
