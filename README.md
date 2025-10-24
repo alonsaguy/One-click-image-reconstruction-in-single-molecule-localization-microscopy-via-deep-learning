@@ -45,7 +45,7 @@ directly linked code and data: app.py, app_utils.py, func_utils.py, dataset1
 
 <br>updates
 
-10/24/2025: open-source code, adjusted its data structure and loss function selection
+10/24/2025: open-source code, adjusted the data structure and loss function selection
 
 
 ## Citation
