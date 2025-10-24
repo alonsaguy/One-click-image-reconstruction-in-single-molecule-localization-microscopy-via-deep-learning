@@ -31,9 +31,6 @@ This part contains two Jupyter notebooks:
 ---
 
 ## AutoDS3D Instructions
-
-**get into AutoDS3D directory for instructions (guideline.docx) and updates**
-
 1, one click GUI: please see AutoDS3D/guideline.docx for implementation instructions. 
 code and data: app.py, app_utils.py, func_utils.py, dataset1
 
