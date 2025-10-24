@@ -32,9 +32,9 @@ This part contains two Jupyter notebooks:
 
 ## AutoDS3D Instructions
 
-**see the guideline in AutoDS3D/guideline.docx**  
----
-update [10/24/2025]: adjusted data structure and loss function selection
+**get into AutoDS3D directory for instructions (guideline.docx) and updates**  
+
+
 
 ## Citation
 
