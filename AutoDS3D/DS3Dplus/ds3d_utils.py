@@ -426,6 +426,15 @@ class ImModelTraining(ImModelBase):
         H, W = param_dict['H'], param_dict['W']
         self.non_uniform_noise = NonUniformBg(HW=(H, W), xy_offset=(W/5, H/5), angle_range=(-pi / 4, pi / 4))
         self.bitdepth = param_dict['bitdepth']
+        
+
+    def blur_kernels(self, Nemitters):
+        std_min, std_max = self.g_sigma
+        stds = (std_min + (std_max - std_min) * torch.rand((Nemitters, 1))).to(self.device)
+        gaussian_kernels = [torch.exp(-0.5 * (self.g_xx ** 2 + self.g_yy ** 2) / stds[i] ** 2) for i in range(Nemitters)]  
+        gaussian_kernels = [kernel/kernel.sum() for kernel in gaussian_kernels] # normalization
+        gaussian_kernels = torch.stack(gaussian_kernels)
+        return gaussian_kernels
 
 
     def get_psfs(self, xyzps):  # each batch can only have the same number of particles
@@ -435,13 +444,9 @@ class ImModelTraining(ImModelBase):
         ef_bfp = self.circ * torch.exp(1j * (phase_axial + phase_lateral + self.phase_mask))
         psf_field = fft.fftshift(fft.fftn(fft.ifftshift(ef_bfp, dim=(1, 2)), dim=(1, 2)), dim=(1, 2))  # FT
         psfs = torch.abs(psf_field) ** 2
-        # blur
-        sigma = self.g_sigma[0] + torch.rand(1).to(self.device) * (self.g_sigma[1] - self.g_sigma[0])  # a range
-        blur_kernel = 1 / (2 * pi * sigma ** 2) * (torch.exp(-0.5 * (self.g_xx ** 2 + self.g_yy ** 2) / sigma ** 2))
-        psfs = F.conv2d(psfs.unsqueeze(1), blur_kernel.unsqueeze(0).unsqueeze(0), padding='same')
-        psfs = psfs.squeeze(1)
         # photon normalization
-        psfs = psfs / torch.sum(psfs, dim=(1, 2), keepdims=True) * xyzps[:, 3:4].unsqueeze(1)  # photon normalization
+        psfs = psfs / torch.sum(psfs, dim=(1, 2), keepdims=True) * xyzps[:, 3:4].unsqueeze(1)
+        # crop
         psfs = psfs[:, self.r0:self.r0 + self.H, self.c0:self.c0 + self.W]
         return psfs
 
@@ -451,9 +456,11 @@ class ImModelTraining(ImModelBase):
         :param xyzps: spatial locations and photon counts, tensor, rank 2 [n 4]
         :return: tensor, image
         """
-        psfs = self.get_psfs(xyzps)
+        psfs = self.get_psfs(xyzps)  # after emitter-wise normalization and cropping
 
-        im = torch.sum(psfs, dim=0)
+        # blur, emitter-wise
+        blur_kernels = self.blur_kernels(psfs.shape[0]).unsqueeze(0) 
+        im = F.conv2d(psfs.unsqueeze(0), blur_kernels, padding='same').squeeze()
 
         # noise: background, shot, readout
         # im = torch.poisson(im + self.bg)  # rounded
@@ -473,7 +480,7 @@ class ImModelTraining(ImModelBase):
         im[im < 0] = 0
         max_adu = 2 ** self.bitdepth - 1
         im[im > max_adu] = max_adu
-        im = im.type(torch.int32)  # no uint16 for torch
+        im = im.type(torch.int32) 
 
         return im
 
