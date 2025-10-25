@@ -32,16 +32,21 @@ This part contains two Jupyter notebooks:
 
 ## AutoDS3D Instructions
 
-The main one-click GUI provides easy access for most users. Open-source code is also available for users who want customization and explore technical details, along with in-situ PSF modeling.
+The main one-click GUI provides easy access for most users. Open-source code is also available for users who want to explore technical details and do customization, along with in-situ PSF modeling.
 
-1, one click GUI: please see AutoDS3D/guideline.docx for implementation instructions.
+1, one click GUI: please see **AutoDS3D/guideline.docx** for implementation instructions.
 
 directly linked code and data: app.py, app_utils.py, func_utils.py, dataset1
 
-2, open-source code: training.ipynb, inference.ipynb, dataset2
+2, open-source code
 
-3, in_situ PSF modeling: insitu_sim.ipynb, insitu_exp.ipynb, in_situ_data
+directly linked code and data: training.ipynb, inference.ipynb, dataset2
 
+3, in_situ PSF modeling
+
+directly linked code and data: insitu_sim.ipynb, insitu_exp.ipynb, in_situ_data
+
+reference: Liu, Sheng, et al. "Universal inverse modeling of point spread functions for SMLM localization and microscope characterization." Nature Methods 21.6 (2024): 1082-1093.
 
 <br>updates
 
