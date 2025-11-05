@@ -52,7 +52,7 @@ reference: Liu, Sheng, et al. "Universal inverse modeling of point spread functi
 
 2025/10/24: open-source code, adjusted the data structure and loss function selection
 
-2025/11/05: from now on, see the updated code in: https://github.com/dafeixiao/AutoDS3D
+2025/11/05: The GUI has fewer parameters a user needs to provide now. From now on, find the updated code in: https://github.com/dafeixiao/AutoDS3D
 
 
 
